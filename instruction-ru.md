@@ -2,8 +2,8 @@
 ## linux
 ```bash
 # 1. клонировать репозиторий
-git clone https://...
-cd ...
+git clone https://github.com/zudanievil/nfc_telegram_bot_for_daily_activity_registration
+cd nfc_telegram_bot_for_daily_activity_registration
 
 # шаги 2-5 могут быть заменены скриптом:
 sudo bash env_setup.sh
@@ -31,8 +31,8 @@ python3 src/telebot.py [telegram_bot_token] [bot_email] [bot_email_password] [lo
 1. крайне желательно установить chocolatey (менеджер пакетов): https://chocolatey.org/install#install-step2
 ```
 # 2. установить git, клонировать репозиторий
-git clone https://...
-cd ...
+git clone https://github.com/zudanievil/nfc_telegram_bot_for_daily_activity_registration
+cd nfc_telegram_bot_for_daily_activity_registration
 
 # 3 - 6 аналогичны шагам 2-5 для linux:
 call env_setup.bat
