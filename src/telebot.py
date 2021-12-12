@@ -4,7 +4,7 @@ import sys
 
 from telegram.ext import Updater
 
-from lib import (
+from mylib import (
     utils,
     # mailer,
     resources as rss,
