@@ -1,3 +1,10 @@
+/bot_info.yml
+*/__pycache__
+/.idea
+/launch.sh
+/storage/*
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
