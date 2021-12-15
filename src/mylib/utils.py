@@ -20,8 +20,23 @@ class Args:
 
 
 def parse_validate_chips(p: Path) -> Set[int]:
+    if not p.exists():
+        logging.getLogger(__name__).critical("""
+storage/chips.txt is absent please create file and put there smth like this:
+--------- storage/chips.txt -----------------
+# comment lines start with #
+# each chip id is a number on a separate line
+5566
+7788
+---------------------------------------------
+"""
+        )
+
     with p.open("rt") as f:
         lines: List[Tuple[int, str]] = [(i+1, c) for (i, c) in enumerate(f.readlines()) if not c.startswith("#")]
+
+    if len(lines) == 0:
+        logging.getLogger(__name__).critical("storage/chips.txt empty")
 
     invalid = [(i, c) for i, c in lines if not rss.CHIP_ID_REGEX.match(c)]
     if len(invalid) > 0:

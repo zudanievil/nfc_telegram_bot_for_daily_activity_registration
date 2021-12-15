@@ -12,12 +12,12 @@ sudo bash setup.sh
 python3 src/telebot.py [process_name] [telegram_bot_token] [bot_email] [bot_email_password] [log_mode]
 # log mode: debug | info | critical
 
-# желательно открепить процесс от терминала, например:
-nohup python3 src/telebot.py [process_name] [telegram_bot_token] [bot_email] [bot_email_password] [log_mode] > storage/out.log 2>&1 &
-# (https://danielbeard.wordpress.com/2011/06/08/detaching-a-running-process-from-a-bash-shell/)
-
 # 4. остановить бота
 kill -s TERM -l "$(pidof [process_name])"
+
+# при запуске "в продакшене" лучше открепить процесс от терминала, например:
+nohup python3 src/telebot.py [process_name] [telegram_bot_token] [bot_email] [bot_email_password] [log_mode] > storage/out.log 2>&1 &
+# (https://danielbeard.wordpress.com/2011/06/08/detaching-a-running-process-from-a-bash-shell/)
  ```
 токен, почта, пароль от почты и тд в файле `bot_info.yml`.
 тк он содержит информацию для аутентификации в боте и в почте
