@@ -1,10 +1,11 @@
-/bot_info.yml
-*/__pycache__
+# ide settings
 /.idea
-/launch.sh
+# tokens, passwords, etc
+/private/*
+# databases, logs, one-time configurations
 /storage/*
 
-
+# --------------- generic stuff ----------------
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

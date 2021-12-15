@@ -10,7 +10,7 @@ SURVERY_URL = "https://docs.google.com/forms/d/e/1FAIpQLSe4zwAsOisipPy9Jr1OW19zm
 DATETIME_FMT = "%Y/%m/%d %H:%M:%S"
 
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
-HEX_INT_REGEX = re.compile(r"^[0-9A-Fa-f]{8}$")
+CHIP_ID_REGEX = re.compile(r"^[0-9]{4}$")
 
 STORAGE_PATH = (Path(__file__) / "../../../storage/").resolve()
 CHIPS_PATH = STORAGE_PATH / "chips.txt"

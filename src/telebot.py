@@ -2,6 +2,7 @@
 import logging
 import sys
 
+from setproctitle import setproctitle
 from telegram.ext import Updater
 
 from mylib import (
@@ -15,9 +16,10 @@ from mylib import (
 if __name__ == "__main__":
     # init
     args = utils.Args.parse(sys.argv)
-    rss.valid_chips.update(utils.parse_chips(rss.CHIPS_PATH))
-    database.db_init(db_path=rss.DATABASE_PATH)
+    setproctitle(args.procname)  # send sigterm to this name to correctly terminate the bot
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=args.logging_level)
+    rss.valid_chips.update(utils.parse_validate_chips(rss.CHIPS_PATH))
+    database.db_init(db_path=rss.DATABASE_PATH)
     # mailer.init_data_mailer(args.email, [args.email, ], args.email_pass)
     updater = bot_builder.build_bot(Updater(args.token,))
 

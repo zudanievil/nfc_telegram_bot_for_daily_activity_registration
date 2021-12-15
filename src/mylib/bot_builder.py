@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List, Iterable
 
 from . import (
     database,
@@ -10,7 +10,11 @@ from . import (
     messages as msg
 )
 
-from telegram import Update
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -18,6 +22,7 @@ from telegram.ext import (
     Filters,
     ConversationHandler,
     CallbackContext,
+    CallbackQueryHandler,
 )
 
 # ========================== login conversation ========================================
@@ -37,7 +42,7 @@ def login(update: Update, _: CallbackContext) -> int:
 
 def register_chip(update: Update, _: CallbackContext) -> int:
     chip = update.message.text
-    if not rss.HEX_INT_REGEX.match(chip):
+    if not rss.CHIP_ID_REGEX.match(chip):
         update.message.reply_text(msg.ru.CHIP_ID_MALFORMED)
         return REGISTER_CHIP
     chip_int = int(chip, 16)
@@ -73,6 +78,13 @@ def register_email(update: Update, _: CallbackContext) -> int:
 def register_email_skip(update: Update, _: CallbackContext) -> int:
     update.message.reply_text(msg.ru.EMAIL_SKIPPED)
     return survey(update, _)
+
+
+def enumerated_buttons(texts: Iterable[str]) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(text, callback_data=i)]
+        for i, text in enumerate(texts)
+    ])
 
 
 def survey(update: Update, _: CallbackContext) -> int:
@@ -113,7 +125,6 @@ def login_conversation() -> ConversationHandler:
             REGISTER_CHIP: [chip_h, ],
             REGISTER_EMAIL: [email_h, email_skip_h],
             COMPLETE_SURVEY: [end_h],
-            # POST_SURVEY: [],
         },
         fallbacks=[cancel_h],
         allow_reentry=True,
@@ -146,7 +157,7 @@ def localize_action_data(ad: database.ActionData) -> str:
 
 def register_action(update: Update, _: CallbackContext) -> int:
     try:
-        ad = parse_action_data(update.effective_user.id, update.message.text)
+        ad = parse_action_data(update.effective_user.id, update.message.text.lower())
         pending_action_data[update.effective_user.id] = ad
         # reading past messages is not supported or not well-documented, so we need to store them
         update.message.reply_text(msg.ru.ACTION_READY_TO_BE_REGISTERED.format(
