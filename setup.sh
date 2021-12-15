@@ -30,4 +30,7 @@ fi
 
 virtualenv -m venv env
 source "env/bin/activate"
-pip install -r requirements.txt
+pip install --no-input -r requirements.txt
+
+mkdir storage
+touch storage/chip.txt

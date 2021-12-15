@@ -5,38 +5,33 @@
 git clone https://github.com/zudanievil/nfc_telegram_bot_for_daily_activity_registration
 cd nfc_telegram_bot_for_daily_activity_registration
 
-# шаги 2-5 могут быть заменены скриптом:
-sudo bash env_setup.sh
-# --------
-# 2. поставить python
-sudo apt install python3-virtualenv   # debian, ubuntu
-sudo dnf install python3-virtualenv    # fedora, centos
+# 2 запустить установочный скрипт
+sudo bash setup.sh
 
-# 3. создать виртуальную среду python
-virtualenv -p python3 env
-# 4. активировать среду
-source env/bin/activate
-# 5. установить библиотеки
-pip install -r requirements.txt
-# ---------
-
-# 6. запустить src/telebot.py
-python3 src/telebot.py [telegram_bot_token] [bot_email] [bot_email_password] [log_mode]
+# 3. запустить src/telebot.py
+python3 src/telebot.py [process_name] [telegram_bot_token] [bot_email] [bot_email_password] [log_mode]
 # log mode: debug | info | critical
+
+# желательно открепить процесс от терминала, например:
+nohup python3 src/telebot.py [process_name] [telegram_bot_token] [bot_email] [bot_email_password] [log_mode] > storage/out.log 2>&1 &
+# (https://danielbeard.wordpress.com/2011/06/08/detaching-a-running-process-from-a-bash-shell/)
+
+# 4. остановить бота
+kill -s TERM -l "$(pidof [process_name])"
  ```
 токен, почта, пароль от почты и тд в файле `bot_info.yml`.
 тк он содержит информацию для аутентификации в боте и в почте
 
-## windows
+## windows [пока не проверен!]
 1. крайне желательно установить chocolatey (менеджер пакетов): https://chocolatey.org/install#install-step2
 ```
 # 2. установить git, клонировать репозиторий
 git clone https://github.com/zudanievil/nfc_telegram_bot_for_daily_activity_registration
 cd nfc_telegram_bot_for_daily_activity_registration
 
-# 3 - 6 аналогичны шагам 2-5 для linux:
+# 3.
 call env_setup.bat
 
-# 7. запустить src/telebot.py
+# 4. запустить src/telebot.py
 
 ```
