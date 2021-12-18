@@ -243,11 +243,25 @@ def senddoc(update: Update, _: CallbackContext, password=None) -> None:
     try:
         _, fname, passw = update.message.text.split()
         fname = rss.STORAGE_PATH / fname
-        assert passw == password and fname.exists()
+        assert passw == password and fname.exists() and fname.resolve() == fname
+        # it is really important to check that fname is a child of STORAGE_PATH to prevent arbitrary data reading
         with fname.open("rb") as f:
             update.message.reply_document(f, disable_content_type_detection=True)
+        logging.getLogger(__name__).critical(f"{fname} read by {update.effective_user.__dict__}")
     except Exception as e:
-        logging.getLogger(__name__).critical(f"attempt to download file pass={passw}, f={fname}", exc_info=e)
+        logging.getLogger(__name__).critical(f"attempt to download file msg={update.message.text}", exc_info=e)
+        return unknown_command(update, _)
+
+
+def shutdown(update: Update, _: CallbackContext, password=None) -> None:
+    try:
+        _, passw = update.message.text.split()
+        assert passw == password
+        import os, signal
+        logging.getLogger(__name__).critical(f"bot terminated by {update.effective_user.__dict__}")
+        os.kill(os.getpid(), signal.SIGTERM)
+    except Exception as e:
+        logging.getLogger(__name__).critical(f"attempt to terminate bot msg={update.message.text}", exc_info=e)
         return unknown_command(update, _)
 
 
@@ -256,7 +270,7 @@ def build_bot(updater: Updater, password=None) -> Updater:
     dispatcher.add_handler(build_login_conversation())
     dispatcher.add_handler(build_action_conversation())
     if password is not None:
-        dispatcher.add_handler(
-            MessageHandler(Filters.command("senddoc") & Filters.text, partial(senddoc, password=password)))
+        dispatcher.add_handler(CommandHandler("senddoc", partial(senddoc, password=password)))
+        dispatcher.add_handler(CommandHandler("shutdown", partial(shutdown, password=password)))
     dispatcher.add_handler(UNKNOWN_COMMAND)
     return updater

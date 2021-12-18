@@ -20,8 +20,8 @@ if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=args.logging_level)
     rss.valid_chips.update(utils.parse_validate_chips(rss.CHIPS_PATH))
     database.db_init(db_path=rss.DATABASE_PATH)
-    # mailer.init_data_mailer(args.email, [args.email, ], args.email_pass)
-    updater = bot_builder.build_bot(Updater(args.token,), password="test")
+    # mailer.init_data_mailer(args.email, [args.email, ], args.password)
+    updater = bot_builder.build_bot(Updater(args.token,), password=args.password)
 
     # work
     updater.start_polling()

@@ -116,7 +116,7 @@ def db_init(db_path: Path):
 
 def db_terminate() -> (Thread, Path):
     __db_sigterm.set()
-    logging.getLogger(__name__).debug("sigterm to db")
+    logging.getLogger(__name__).info("sigterm to db")
     return __db_thread, __db_path
 
 
@@ -138,7 +138,7 @@ def _db_thread(db_path: Path, task_queue: Queue, sigterm: Event,
         if task_queue.empty():
             if sigterm.is_set():
                 db_conn.commit()
-                logging.getLogger(__name__).debug("db terminated")
+                logging.getLogger(__name__).info("db terminated")
                 break
             sleep(queue_poll_interval)
             continue

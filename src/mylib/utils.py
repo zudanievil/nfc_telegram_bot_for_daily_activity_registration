@@ -11,7 +11,7 @@ class Args:
     procname: str
     token: str
     email: str
-    email_pass: str
+    password: str
     logging_level: int = logging.DEBUG
 
     @classmethod

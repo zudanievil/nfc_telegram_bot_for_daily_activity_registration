@@ -5,7 +5,6 @@ from functools import partial
 from pathlib import Path
 from typing import Optional, List, Iterable
 from .email_utils import send_email
-# from email_utils import send_email
 import logging
 
 _data_mailer: Optional[partial] = None
