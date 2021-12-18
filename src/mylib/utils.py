@@ -47,4 +47,4 @@ storage/chips.txt is absent please create file and put there smth like this:
         )
         sys.exit(1)
 
-    return {int(c, 16) for _, c in lines}
+    return {int(c) for _, c in lines}

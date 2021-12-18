@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Set
 
 SURVERY_URL = "https://docs.google.com/forms/d/e/1FAIpQLSe4zwAsOisipPy9Jr1OW19zmaspXh-w0aLaUzbSQt3t2o0Utg" \
-              "/viewform?usp=pp_url&entry.851864411={chip_id:04X}"
+              "/viewform?usp=pp_url&entry.851864411={chip_id:04d}"
 # https://stevesammons.me/dynamically-pre-fill-google-forms-with-url-parameters/
 
 DATETIME_FMT = "%Y/%m/%d %H:%M:%S"

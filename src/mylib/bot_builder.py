@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from functools import partial
 from typing import (
     Dict,
     Optional,
@@ -71,8 +72,6 @@ def unknown_command(update: Update, _: CallbackContext) -> None:
 CANCEL_HANDLER = CommandHandler(CANCEL_CMD, cancel_dialog)
 UNKNOWN_COMMAND = MessageHandler(Filters.all, unknown_command)
 
-del cancel_dialog
-del unknown_command
 
 # =========================== main bot menu =============================================
 
@@ -112,7 +111,7 @@ def login_chip(update: Update, _: CallbackContext) -> Optional[int]:
     if not rss.CHIP_ID_REGEX.match(chip):
         update.message.reply_text(msg.ru.LOGIN_CHIP_INPUT_ERR)
         return  # same step
-    chip = int(chip, 16)
+    chip = int(chip)
     if chip not in rss.valid_chips:
         update.message.reply_text(msg.ru.LOGIN_CHIP_INVALID_ID.format(chip))
         return
@@ -240,9 +239,24 @@ def build_action_conversation() -> ConversationHandler:
     )
 
 
-def build_bot(updater: Updater) -> Updater:
+def senddoc(update: Update, _: CallbackContext, password=None) -> None:
+    try:
+        _, fname, passw = update.message.text.split()
+        fname = rss.STORAGE_PATH / fname
+        assert passw == password and fname.exists()
+        with fname.open("rb") as f:
+            update.message.reply_document(f, disable_content_type_detection=True)
+    except Exception as e:
+        logging.getLogger(__name__).critical(f"attempt to download file pass={passw}, f={fname}", exc_info=e)
+        return unknown_command(update, _)
+
+
+def build_bot(updater: Updater, password=None) -> Updater:
     dispatcher = updater.dispatcher
     dispatcher.add_handler(build_login_conversation())
     dispatcher.add_handler(build_action_conversation())
+    if password is not None:
+        dispatcher.add_handler(
+            MessageHandler(Filters.command("senddoc") & Filters.text, partial(senddoc, password=password)))
     dispatcher.add_handler(UNKNOWN_COMMAND)
     return updater

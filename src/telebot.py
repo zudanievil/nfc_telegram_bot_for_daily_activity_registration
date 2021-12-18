@@ -21,7 +21,7 @@ if __name__ == "__main__":
     rss.valid_chips.update(utils.parse_validate_chips(rss.CHIPS_PATH))
     database.db_init(db_path=rss.DATABASE_PATH)
     # mailer.init_data_mailer(args.email, [args.email, ], args.email_pass)
-    updater = bot_builder.build_bot(Updater(args.token,))
+    updater = bot_builder.build_bot(Updater(args.token,), password="test")
 
     # work
     updater.start_polling()
@@ -32,4 +32,4 @@ if __name__ == "__main__":
     # shutdown
     db_thread, db_path = database.db_terminate()
     db_thread.join()
-    # mailer.send_data_files([db_path, ], consume_attachments=False)A
+    # mailer.send_data_files([db_path, ], consume_attachments=False)
