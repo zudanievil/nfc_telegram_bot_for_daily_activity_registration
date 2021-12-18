@@ -2,18 +2,15 @@
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Iterable
-
-from . import (
-    database,
-    resources as rss,
-    messages as msg
+from typing import (
+    Dict,
+    Optional,
+    Generic,
+    TypeVar,
 )
-
 from telegram import (
     Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
 )
 from telegram.ext import (
     Updater,
@@ -22,210 +19,230 @@ from telegram.ext import (
     Filters,
     ConversationHandler,
     CallbackContext,
-    CallbackQueryHandler,
 )
 
-# ========================== login conversation ========================================
-# login conversation states:
-PRE_REGISTER, REGISTER_CHIP, REGISTER_EMAIL, COMPLETE_SURVEY, POST_SURVEY = range(5)
+from . import (
+    database,
+    resources as rss,
+    messages as msg
+)
+
+# ====================== helper classes ===========================================
+_T = TypeVar("_T")
 
 
-def start(update: Update, _: CallbackContext) -> int:
-    update.message.reply_text(msg.ru.START_MESSAGE)
-    return login(update, _)
+class DictKeys(Generic[_T]):
+    __slots__ = "options",
+
+    def __init__(self, options: Dict[str, _T]):
+        self.options = options
+
+    def to_keyboard(self, one_time=True, placeholder: Optional[str] = msg.ru.CHOOSE_OPTION) -> ReplyKeyboardMarkup:
+        return ReplyKeyboardMarkup(
+            [(k,) for k in self.options.keys()],
+            one_time_keyboard=one_time,
+            input_field_placeholder=placeholder
+        )
+
+    def parse(self, s: str) -> Optional[_T]:
+        """:returns None if s does not match options else corresponding value"""
+        try:
+            return self.options[s]
+        except KeyError:
+            return None
+
+    def to_filter(self) -> Filters:
+        return Filters.text(self.options.keys())
 
 
-def login(update: Update, _: CallbackContext) -> int:
-    update.message.reply_text(msg.ru.ASK_CHIP_ID)
-    return REGISTER_CHIP
-
-
-def register_chip(update: Update, _: CallbackContext) -> int:
-    chip = update.message.text
-    if not rss.CHIP_ID_REGEX.match(chip):
-        update.message.reply_text(msg.ru.CHIP_ID_MALFORMED)
-        return REGISTER_CHIP
-    chip_int = int(chip, 16)
-    if chip_int not in rss.valid_chips:
-        update.message.reply_text(msg.ru.CHIP_ID_INVALID.format(chip))
-        return REGISTER_CHIP
-    try:
-        database.db_write(database.ChipData(update.effective_user.id, chip_int))
-        update.message.reply_text(msg.ru.CHIP_SUCCESSFULLY_REGISTERED.format(chip_int))
-        update.message.reply_text(msg.ru.ASK_EMAIL)
-        return REGISTER_EMAIL
-    except Exception as e:
-        update.message.reply_text(msg.ru.CHIP_ID_REGISTRATION_ERROR)
-        logging.getLogger(__name__).info(f"{e}")
-        return REGISTER_CHIP
-
-
-def register_email(update: Update, _: CallbackContext) -> int:
-    email = update.message.text
-    if not rss.EMAIL_REGEX.match(email):
-        update.message.reply_text(msg.ru.EMAIL_MALFORMED.format(email))
-        return REGISTER_EMAIL
-    try:
-        database.db_write(database.EmailData(update.effective_user.id, email))
-        update.message.reply_text(msg.ru.EMAIL_SUCCESSFULLY_REGISTERED.format(email))
-        return survey(update, _)
-    except Exception as e:
-        update.message.reply_text(msg.ru.EMAIL_REGISTRATION_ERROR)
-        logging.getLogger(__name__).info(f"{e}")
-        return REGISTER_EMAIL
-
-
-def register_email_skip(update: Update, _: CallbackContext) -> int:
-    update.message.reply_text(msg.ru.EMAIL_SKIPPED)
-    return survey(update, _)
-
-
-def enumerated_buttons(texts: Iterable[str]) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(text, callback_data=i)]
-        for i, text in enumerate(texts)
-    ])
-
-
-def survey(update: Update, _: CallbackContext) -> int:
-    chip_data = database.db_read_user(update.effective_user.id)
-    if chip_data is None:
-        update.message.reply_text(msg.ru.CHIP_ID_UNREGISTERED)
-        update.message.reply_text(msg.ru.ASK_CHIP_ID)
-        return REGISTER_CHIP
-    update.message.reply_text(msg.ru.ASK_TO_COMPLETE_SURVEY.format(
-            SURVEY_URL=rss.SURVERY_URL.format(chip_id=chip_data.chip)))
-    return COMPLETE_SURVEY
+# ========================== generic commands, handlers ==========================================
+START_CMD, SKIP_CMD, CANCEL_CMD = "start", "next", "cancel"
 
 
 def cancel_dialog(update: Update, _: CallbackContext) -> int:
     update.message.reply_text(msg.ru.CONVERSATION_CANCELLED)
+    return main_menu(update, _)
+
+
+def unknown_command(update: Update, _: CallbackContext) -> None:
+    update.message.reply_text(msg.ru.UNKNOWN_COMMAND)
+
+
+CANCEL_HANDLER = CommandHandler(CANCEL_CMD, cancel_dialog)
+UNKNOWN_COMMAND = MessageHandler(Filters.all, unknown_command)
+
+del cancel_dialog
+del unknown_command
+
+# =========================== main bot menu =============================================
+
+
+MAIN_MENU_KEYS = DictKeys(dict.fromkeys((
+    msg.ru.REGISTER_ACTION,
+    msg.ru.COMPLETE_SURVEY,
+    msg.ru.LOGIN,
+)))
+
+
+def main_menu(update: Update, _: CallbackContext) -> int:
+    """! always :returns :class:`ConversationHandler.END`"""
+    update.message.reply_text(
+        msg.ru.MAIN_MENU,
+        reply_markup=MAIN_MENU_KEYS.to_keyboard(one_time=False)
+    )
     return ConversationHandler.END
 
 
-def dialog_complete(update: Update, _: CallbackContext) -> int:
+def start_the_bot(update: Update, _: CallbackContext) -> int:
+    update.message.reply_text(msg.ru.START_MESSAGE)
+    return login_pre(update, _)
+
+
+# ========================== login conversation ========================================
+PRE, CHIP, EMAIL, SURVEY = 1, 2, 3, 4  # conversation states
+
+
+def login_pre(update: Update, _: CallbackContext) -> int:
+    update.message.reply_markdown(msg.ru.LOGIN_CHIP_ASK)
+    return CHIP
+
+
+def login_chip(update: Update, _: CallbackContext) -> Optional[int]:
+    chip = update.message.text
+    if not rss.CHIP_ID_REGEX.match(chip):
+        update.message.reply_text(msg.ru.LOGIN_CHIP_INPUT_ERR)
+        return  # same step
+    chip = int(chip, 16)
+    if chip not in rss.valid_chips:
+        update.message.reply_text(msg.ru.LOGIN_CHIP_INVALID_ID.format(chip))
+        return
+    try:
+        database.db_write(database.ChipData(update.effective_user.id, chip))
+        update.message.reply_text(msg.ru.LOGIN_CHIP_COMPLETE.format(chip))
+        update.message.reply_text(msg.ru.LOGIN_EMAIL_ASK.format(skip_cmd=SKIP_CMD))
+        return EMAIL
+    except Exception as e:
+        update.message.reply_text(msg.ru.LOGIN_CHIP_PROG_ERR)
+        logging.getLogger(__name__).critical(f"{e}")
+        return
+
+
+def login_email(update: Update, _: CallbackContext) -> Optional[int]:
+    email = update.message.text
+    if not rss.EMAIL_REGEX.match(email):
+        update.message.reply_text(msg.ru.LOGIN_EMAIL_INPUT_ERR.format(email))
+        return
+    try:
+        database.db_write(database.EmailData(update.effective_user.id, email))
+        update.message.reply_text(msg.ru.LOGIN_EMAIL_COMPLETE.format(email))
+        return login_survey(update, _)
+    except Exception as e:
+        update.message.reply_text(msg.ru.LOGIN_EMAIL_PROG_ERR)
+        logging.getLogger(__name__).critical(f"{e}")
+        return
+
+
+def login_email_skip(update: Update, _: CallbackContext) -> int:
+    update.message.reply_text(msg.ru.LOGIN_EMAIL_SKIPPED)
+    return login_survey(update, _)
+
+
+def login_survey(update: Update, _: CallbackContext) -> int:
+    chip_data = database.db_read_user(update.effective_user.id)
+    if chip_data is None:
+        update.message.reply_text(msg.ru.LOGIN_SURVEY_CHIP_UNREGISTERED)
+        return login_pre(update, _)
+    update.message.reply_markdown(
+        msg.ru.LOGIN_SURVEY_ASK.format(
+            SURVEY_URL=rss.SURVERY_URL.format(chip_id=chip_data.chip),
+            skip_cmd=SKIP_CMD
+        ),
+        disable_web_page_preview=True,
+    )
+    return SURVEY
+
+
+def login_complete(update: Update, _: CallbackContext) -> int:
     update.message.reply_text(msg.ru.LOGIN_COMPLETE)
-    update.message.reply_text(msg.ru.HELP_MESSAGE)
-    return ConversationHandler.END
+    return main_menu(update, _)
 
 
-def login_conversation() -> ConversationHandler:
-    start_h = CommandHandler("start", start)
-    login_h = CommandHandler("login", login)
-    chip_h = MessageHandler(Filters.text & (~Filters.command), register_chip)
-    email_h = MessageHandler(Filters.text & (~Filters.command), register_email, run_async=True)
-    email_skip_h = CommandHandler("skip", register_email_skip, run_async=True,)
-    survey_h = CommandHandler("survey", survey, run_async=True)
-    end_h = CommandHandler("ok", dialog_complete)
-    cancel_h = CommandHandler("cancel", cancel_dialog)
+def build_login_conversation() -> ConversationHandler:
+    start_h = CommandHandler(START_CMD, start_the_bot)
+    login_h = MessageHandler(Filters.text([msg.ru.LOGIN]), login_pre)
+    email_h = MessageHandler(Filters.text & (~Filters.command(SKIP_CMD)), login_email, run_async=True)
+    email_skip_h = CommandHandler(SKIP_CMD, login_email_skip, run_async=True, )
+    survey_h = MessageHandler(Filters.text([msg.ru.COMPLETE_SURVEY, ]), login_survey, run_async=True)
     return ConversationHandler(
         entry_points=[start_h, login_h, survey_h],
         states={
-            PRE_REGISTER: [login_h, ],
-            REGISTER_CHIP: [chip_h, ],
-            REGISTER_EMAIL: [email_h, email_skip_h],
-            COMPLETE_SURVEY: [end_h],
+            PRE: [login_h, ],
+            CHIP: [MessageHandler(Filters.text, login_chip), ],
+            EMAIL: [email_h, email_skip_h],
+            SURVEY: [CommandHandler(SKIP_CMD, login_complete)],
         },
-        fallbacks=[cancel_h],
+        fallbacks=[CANCEL_HANDLER],
         allow_reentry=True,
     )
 
 
 # ====================== action conversation =====================================
-REGISTER_ACTION, CONFIRM_ACTION = range(2)
-YES = "y"
-NO = "n"
+REGISTER, CONFIRM = 1, 2
 
 pending_action_data: Dict[int, database.ActionData] = dict()
 
-
-def start_action_conversation(update: Update, _: CallbackContext) -> int:
-    update.message.reply_text(msg.ru.ACTION_CONVERSATION_HELP)
-    return REGISTER_ACTION
+ACTION_KEYS = DictKeys(msg.ru.STR_TO_ACTIONS)
+YES_NO_KEYS = DictKeys({msg.ru.YES: True, msg.ru.NO: False})
 
 
-def parse_action_data(user: int, s: str) -> database.ActionData:
-    chunks = s.split()
-    action: database.actions = msg.ru.STRINGS_TO_ACTIONS[chunks[0]]
-    amount = float(chunks[1])
-    return database.ActionData(user, datetime.now(), action, amount)
+def action_start(update: Update, _: CallbackContext) -> int:
+    update.message.reply_text(
+        msg.ru.ACTION_START,
+        reply_markup=ACTION_KEYS.to_keyboard()
+    )
+    return REGISTER
 
 
 def localize_action_data(ad: database.ActionData) -> str:
-    return f"{ad.time.strftime(rss.DATETIME_FMT)}: {msg.ru.ACTIONS_TO_STRINGS[ad.action]} {ad.amount}"
+    return f"`{msg.ru.ACTIONS_TO_STR[ad.action]} ({ad.time.strftime(rss.DATETIME_FMT)})`"
 
 
-def register_action(update: Update, _: CallbackContext) -> int:
-    try:
-        ad = parse_action_data(update.effective_user.id, update.message.text.lower())
-        pending_action_data[update.effective_user.id] = ad
-        # reading past messages is not supported or not well-documented, so we need to store them
-        update.message.reply_text(msg.ru.ACTION_READY_TO_BE_REGISTERED.format(
-            action_data=localize_action_data(ad), yes=YES, no=NO))
-        return CONFIRM_ACTION
-    except (IndexError, ValueError, KeyError) as e:  # ad is an error message (str)
-        update.message.reply_text(msg.ru.ACTION_COMMAND_MALFORMED)
-        logging.getLogger(__name__).debug(f"[{update.message.text}] parsing failed with:", exc_info=e)
-        return REGISTER_ACTION
+def action_register(update: Update, _: CallbackContext) -> int:
+    ad = database.ActionData(update.effective_user.id, datetime.now(), ACTION_KEYS.parse(update.message.text))
+    pending_action_data[update.effective_user.id] = ad
+    # reading past messages is not supported or not well-documented, so we need to store them
+    update.message.reply_markdown(
+        msg.ru.ACTION_CONFIRMATION_ASK.format(action_data=localize_action_data(ad)),
+        reply_markup=YES_NO_KEYS.to_keyboard(),
+    )
+    return CONFIRM
 
 
-def confirm_action_registration(update: Update, _: CallbackContext) -> int:
-    cmd = update.message.text[1:]
-    user = update.effective_user.id
-    if cmd == YES:
-        database.db_write(pending_action_data.pop(user))
-        # retrieves message from temporary storage and registers it
-        update.message.reply_text(msg.ru.ACTION_REGISTERED)
-        return ConversationHandler.END
-    elif cmd == NO:
-        pending_action_data.pop(user)
-        update.message.reply_text(msg.ru.ACTION_CANCELED)
-        return ConversationHandler.END
+def action_confirm(update: Update, _: CallbackContext) -> int:
+    if YES_NO_KEYS.parse(update.message.text):
+        database.db_write(pending_action_data.pop(update.effective_user.id))
+        update.message.reply_text(msg.ru.ACTION_CONFIRMED)
     else:
-        update.message.reply_text(msg.ru.UNKNOWN_COMMAND)
-        return CONFIRM_ACTION
+        pending_action_data.pop(update.effective_user.id)
+        update.message.reply_text(msg.ru.ACTION_CANCELED)
+    return main_menu(update, _)
 
 
-def help_action_conversation(update: Update, _: CallbackContext) -> int:
-    if update.message.text == "/help":
-        update.message.reply_text(msg.ru.ACTION_REGISTRATION_HELP_MESSAGE)
-    # elif update.message.text == "/cancel":  # this is ridiculous!
-    #     return cancel_dialog(update, _)
-    # else:
-    #     update.message.reply_text(msg.ru.UNKNOWN_COMMAND)
-    return REGISTER_ACTION
-
-
-def action_conversation() -> ConversationHandler:
-    start_h = CommandHandler("action", start_action_conversation)
-    help_h = CommandHandler("help", help_action_conversation)
-    register_hs = [MessageHandler(Filters.text & (~ Filters.command), register_action), ]
-    confirm_hs = [CommandHandler(c, confirm_action_registration) for c in (YES, NO)]
-    cancel_h = CommandHandler("cancel", cancel_dialog)
-    unknown_h = MessageHandler(Filters.all, unknown_command)
+def build_action_conversation() -> ConversationHandler:
     return ConversationHandler(
-        entry_points=[start_h],
+        entry_points=[MessageHandler(Filters.text(msg.ru.REGISTER_ACTION), action_start)],
         states={
-            REGISTER_ACTION: register_hs + [help_h, ],
-            CONFIRM_ACTION: confirm_hs,
+            REGISTER: [MessageHandler(ACTION_KEYS.to_filter(), action_register), ],
+            CONFIRM: [MessageHandler(YES_NO_KEYS.to_filter(), action_confirm), ],
         },
-        fallbacks=[cancel_h, unknown_h],
+        fallbacks=[CANCEL_HANDLER, UNKNOWN_COMMAND],
         allow_reentry=True,
     )
 
 
-def help_command(update: Update, _: CallbackContext):
-    update.message.reply_text(msg.ru.HELP_MESSAGE)
-
-
-def unknown_command(update: Update, _: CallbackContext):
-    update.message.reply_text(msg.ru.UNKNOWN_COMMAND)
-
-
 def build_bot(updater: Updater) -> Updater:
     dispatcher = updater.dispatcher
-    dispatcher.add_handler(login_conversation())
-    dispatcher.add_handler(action_conversation())
-    dispatcher.add_handler(CommandHandler("help", help_command))
-    dispatcher.add_handler(MessageHandler(Filters.all, unknown_command))
+    dispatcher.add_handler(build_login_conversation())
+    dispatcher.add_handler(build_action_conversation())
+    dispatcher.add_handler(UNKNOWN_COMMAND)
     return updater

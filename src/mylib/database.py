@@ -21,10 +21,9 @@ CREATE TABLE Actions (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     user INTEGER NOT NULL,
     date FLOAT NOT NULL,
-    action INTEGER NOT NULL,
-    amount FLOAT NOT NULL
+    action INTEGER NOT NULL
 );"""
-_INSERT_ACTION = """INSERT INTO Actions (user, date, action, amount) values (?, ?, ?, ?)"""
+_INSERT_ACTION = """INSERT INTO Actions (user, date, action) values (?, ?, ?)"""
 _INSERT_EMAIL = """UPDATE Users
 SET email=?
 WHERE user=?"""
@@ -33,6 +32,7 @@ _INSERT_CHIP = """UPDATE Users
 SET chip=?
 WHERE user=?"""
 _READ_USER_BY_ID = 'SELECT user, chip, email FROM Users WHERE user = ?'
+_READ_ACTIONS_BY_ID = 'SELECT id, user, date, action FROM Actions'
 
 
 class actions(Enum):
@@ -49,16 +49,15 @@ class ActionData:
     user: int
     time: datetime
     action: actions
-    amount: float
 
     def to_db(self, db_conn: sql.Connection):
-        db_conn.execute(_INSERT_ACTION, (self.user, self.time.timestamp(), self.action.value, self.amount))
+        db_conn.execute(_INSERT_ACTION, (self.user, self.time.timestamp(), self.action.value))
 
     @classmethod
     def from_db(cls, db_conn: sql.Connection) -> List["ActionData"]:
         return list(
-            cls(x[0], datetime.fromtimestamp(x[1]), actions(x[2]), x[3])
-            for x in db_conn.execute(_READ_USER_BY_ID).fetchall()
+            cls(x[0], datetime.fromtimestamp(x[1]), actions(x[2]))
+            for x in db_conn.execute(_READ_ACTIONS_BY_ID).fetchall()
         )
 
 
