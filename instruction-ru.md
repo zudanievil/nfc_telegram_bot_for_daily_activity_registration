@@ -19,8 +19,7 @@ kill -s TERM -l "$(pidof [process_name])"
 nohup python3 src/telebot.py [process_name] [telegram_bot_token] [bot_email] [bot_email_password] [log_mode] > storage/out.log 2>&1 &
 # (https://danielbeard.wordpress.com/2011/06/08/detaching-a-running-process-from-a-bash-shell/)
  ```
-токен, почта, пароль от почты и тд в файле `bot_info.yml`.
-тк он содержит информацию для аутентификации в боте и в почте
+ пароли и тд, относящиеся к боту хранить в папке `private/` их нельзя выкладывать в открытый доступ.
 
 ## windows [пока не проверен!]
 1. крайне желательно установить chocolatey (менеджер пакетов): https://chocolatey.org/install#install-step2
