@@ -10,13 +10,16 @@ from . import resources as rss
 class Args:
     procname: str
     token: str
-    email: str
     password: str
     logging_level: int = logging.DEBUG
 
     @classmethod
     def parse(cls, argv: List[str]) -> "Args":
-        return cls(argv[1], argv[2], argv[3], argv[4], logging.__dict__[argv[5].upper()])
+        try:
+            return cls(argv[1], argv[2], argv[3], logging.__dict__[argv[4].upper()])
+        except:
+            print("usage:\npython telebot.py <process_name> <token> <password> <logging_level: debug | info | critical>")
+            sys.exit(1)
 
 
 def parse_validate_chips(p: Path) -> Set[int]:
