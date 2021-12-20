@@ -239,23 +239,28 @@ def build_action_conversation() -> ConversationHandler:
     )
 
 
+# ============================== admin commands =============================
 def senddoc(update: Update, _: CallbackContext, password=None) -> None:
     try:
-        _, fname, passw = update.message.text.split()
-        fname = rss.STORAGE_PATH / fname
-        assert passw == password and fname.exists() and fname.resolve() == fname
+        _, passw, file = update.message.text.split()
+        assert passw == password
+        upload_file(update, _, file=None if file == "all" else file)
         # it is really important to check that fname is a child of STORAGE_PATH to prevent arbitrary data reading
-        with fname.open("rb") as f:
-            update.message.reply_document(f, disable_content_type_detection=True)
-        logging.getLogger(__name__).critical(f"{fname} read by {update.effective_user}")
+        logging.getLogger(__name__).critical(f"{file} read by {update.effective_user}")
     except Exception as e:
         logging.getLogger(__name__).critical(f"attempt to download file msg={update.message.text}", exc_info=e)
         return unknown_command(update, _)
 
 
-def upload_all(update: Update, _: CallbackContext):
-    for fname in rss.STORAGE_PATH.iterdir():
-        with fname.open("rb") as f:
+def upload_file(update: Update, _: CallbackContext, file: "Path" = None):
+    if file is None:
+        for file in rss.STORAGE_PATH.iterdir():
+            with file.open("rb") as f:
+                update.message.reply_document(f, disable_content_type_detection=True)
+    else:
+        file = rss.STORAGE_PATH / file
+        assert file.exists() and file.resolve() == file
+        with file.open("rb") as f:
             update.message.reply_document(f, disable_content_type_detection=True)
 
 
@@ -266,12 +271,12 @@ def shutdown(update: Update, _: CallbackContext, password=None) -> None:
             _, passw, upload = cmd
         else:
             _, passw = cmd
-            upload = False
+            upload = None
         assert passw == password
         import os, signal
-        logging.getLogger(__name__).critical(f"bot terminated by {update.effective_user}")
+        logging.getLogger(__name__).critical(f"bot terminated by {update.effective_user} msg={update.message.text}")
         database.db_terminate()[0].join()
-        upload_all(update, _) if upload == "upload" else None
+        upload_file(update, _) if upload == "upload" else None
         update.message.reply_text("terminating")
         os.kill(os.getpid(), signal.SIGTERM)
     except Exception as e:

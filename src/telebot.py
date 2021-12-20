@@ -36,8 +36,7 @@ def get_config(p: Path) -> dict:
         return cfg
 
 
-default_chip_file = """
-# comment lines start with `#`
+default_chip_file = """# comment lines start with `#`
 # each chip id is a 4 digit decimal number on a separate line
 0001  # because of additional text on the line this chip will be invalid
 1234
