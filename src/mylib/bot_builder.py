@@ -70,7 +70,7 @@ def unknown_command(update: Update, _: CallbackContext) -> None:
 
 
 CANCEL_HANDLER = CommandHandler(CANCEL_CMD, cancel_dialog)
-UNKNOWN_COMMAND = MessageHandler(Filters.all, unknown_command)
+UNKNOWN_COMMAND_HANDLER = MessageHandler(Filters.all, unknown_command)
 
 
 # =========================== main bot menu =============================================
@@ -169,18 +169,18 @@ def login_complete(update: Update, _: CallbackContext) -> int:
 def build_login_conversation() -> ConversationHandler:
     start_h = CommandHandler(START_CMD, start_the_bot)
     login_h = MessageHandler(Filters.text([msg.ru.LOGIN]), login_pre)
-    email_h = MessageHandler(Filters.text & (~Filters.command(SKIP_CMD)), login_email, run_async=True)
+    email_h = MessageHandler(Filters.text & (~Filters.command), login_email, run_async=True)
     email_skip_h = CommandHandler(SKIP_CMD, login_email_skip, run_async=True, )
     survey_h = MessageHandler(Filters.text([msg.ru.COMPLETE_SURVEY, ]), login_survey, run_async=True)
     return ConversationHandler(
         entry_points=[start_h, login_h, survey_h],
         states={
             PRE: [login_h, ],
-            CHIP: [MessageHandler(Filters.text, login_chip), ],
+            CHIP: [MessageHandler(Filters.text & (~Filters.command), login_chip), ],
             EMAIL: [email_h, email_skip_h],
             SURVEY: [CommandHandler(SKIP_CMD, login_complete)],
         },
-        fallbacks=[CANCEL_HANDLER],
+        fallbacks=[CANCEL_HANDLER, UNKNOWN_COMMAND_HANDLER],
         allow_reentry=True,
     )
 
@@ -234,7 +234,7 @@ def build_action_conversation() -> ConversationHandler:
             REGISTER: [MessageHandler(ACTION_KEYS.to_filter(), action_register), ],
             CONFIRM: [MessageHandler(YES_NO_KEYS.to_filter(), action_confirm), ],
         },
-        fallbacks=[CANCEL_HANDLER, UNKNOWN_COMMAND],
+        fallbacks=[CANCEL_HANDLER, UNKNOWN_COMMAND_HANDLER],
         allow_reentry=True,
     )
 
@@ -247,18 +247,32 @@ def senddoc(update: Update, _: CallbackContext, password=None) -> None:
         # it is really important to check that fname is a child of STORAGE_PATH to prevent arbitrary data reading
         with fname.open("rb") as f:
             update.message.reply_document(f, disable_content_type_detection=True)
-        logging.getLogger(__name__).critical(f"{fname} read by {update.effective_user.__dict__}")
+        logging.getLogger(__name__).critical(f"{fname} read by {update.effective_user}")
     except Exception as e:
         logging.getLogger(__name__).critical(f"attempt to download file msg={update.message.text}", exc_info=e)
         return unknown_command(update, _)
 
 
+def upload_all(update: Update, _: CallbackContext):
+    for fname in rss.STORAGE_PATH.iterdir():
+        with fname.open("rb") as f:
+            update.message.reply_document(f, disable_content_type_detection=True)
+
+
 def shutdown(update: Update, _: CallbackContext, password=None) -> None:
+    cmd = update.message.text.split()
     try:
-        _, passw = update.message.text.split()
+        if len(cmd) == 3:
+            _, passw, upload = cmd
+        else:
+            _, passw = cmd
+            upload = False
         assert passw == password
         import os, signal
-        logging.getLogger(__name__).critical(f"bot terminated by {update.effective_user.__dict__}")
+        logging.getLogger(__name__).critical(f"bot terminated by {update.effective_user}")
+        database.db_terminate()[0].join()
+        upload_all(update, _) if upload == "upload" else None
+        update.message.reply_text("terminating")
         os.kill(os.getpid(), signal.SIGTERM)
     except Exception as e:
         logging.getLogger(__name__).critical(f"attempt to terminate bot msg={update.message.text}", exc_info=e)
@@ -272,5 +286,5 @@ def build_bot(updater: Updater, password=None) -> Updater:
     if password is not None:
         dispatcher.add_handler(CommandHandler("senddoc", partial(senddoc, password=password)))
         dispatcher.add_handler(CommandHandler("shutdown", partial(shutdown, password=password)))
-    dispatcher.add_handler(UNKNOWN_COMMAND)
+    dispatcher.add_handler(UNKNOWN_COMMAND_HANDLER)
     return updater

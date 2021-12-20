@@ -34,7 +34,7 @@ git clone https://github.com/zudanievil/nfc_telegram_bot_for_daily_activity_regi
 cd nfc_telegram_bot_for_daily_activity_registration
 
 # 3.
-call env_setup.bat
+call setup.bat
 
 # 4. запустить src/telebot.py
 
