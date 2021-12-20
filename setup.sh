@@ -34,3 +34,6 @@ pip install --no-input -r requirements.txt
 
 mkdir storage
 touch storage/chip.txt
+mkdir private
+
+echo "SETUP SUCESSFULL"
