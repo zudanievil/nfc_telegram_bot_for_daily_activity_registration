@@ -24,8 +24,7 @@ bash launch.sh  # предполагается, что в конфигруаци
 bash terminate.sh
 # (https://danielbeard.wordpress.com/2011/06/08/detaching-a-running-process-from-a-bash-shell/)
  ```
-токен, почта, пароль от почты и тд в файле `bot_info.yml`.
-тк он содержит информацию для аутентификации в боте и в почте
+ пароли и тд, относящиеся к боту хранить в папке `private/` их нельзя выкладывать в открытый доступ.
 
 ## windows [пока не проверен!]
 1. крайне желательно установить chocolatey (менеджер пакетов): https://chocolatey.org/install#install-step2
