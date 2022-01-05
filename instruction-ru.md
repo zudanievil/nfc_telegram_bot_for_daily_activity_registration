@@ -26,16 +26,14 @@ bash terminate.sh
  ```
  пароли и тд, относящиеся к боту хранить в папке `private/` их нельзя выкладывать в открытый доступ.
 
-## windows [пока не проверен!]
-1. крайне желательно установить chocolatey (менеджер пакетов): https://chocolatey.org/install#install-step2
-```
-# 2. установить git, клонировать репозиторий
-git clone https://github.com/zudanievil/nfc_telegram_bot_for_daily_activity_registration
+## windows 7+
+1. клонировать репозиторий
+2. установить python3 (важно: при установке отметить опцию 'add python to PATH' (вручную это делать неудобно).
+3. в cmd.exe: 
+```cmd.exe
 cd nfc_telegram_bot_for_daily_activity_registration
 
-# 3.
 call setup.bat
-
-# 4. запустить src/telebot.py
+call launch.bat
 
 ```
