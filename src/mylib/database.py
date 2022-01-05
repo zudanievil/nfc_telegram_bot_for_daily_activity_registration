@@ -55,7 +55,7 @@ class ActionData:
 
     @classmethod
     def from_db(cls, db_conn: sql.Connection) -> List["ActionData"]:
-        return list(
+        return list(  # todo: fix this
             cls(x[0], datetime.fromtimestamp(x[1]), actions(x[2]))
             for x in db_conn.execute(_READ_ACTIONS_BY_ID).fetchall()
         )
