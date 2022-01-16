@@ -186,7 +186,7 @@ def build_login_conversation() -> ConversationHandler:
 
 
 # ====================== action conversation =====================================
-REGISTER, CONFIRM = 1, 2
+REGISTER, DESCRIBE_ACTION, CONFIRM = 1, 2, 3
 
 pending_action_data: Dict[int, database.ActionData] = dict()
 
@@ -203,13 +203,30 @@ def action_start(update: Update, _: CallbackContext) -> int:
 
 
 def localize_action_data(ad: database.ActionData) -> str:
-    return f"`{msg.ru.ACTIONS_TO_STR[ad.action]} ({ad.time.strftime(rss.DATETIME_FMT)})`"
+    return f"`{msg.ru.ACTIONS_TO_STR[ad.action]} ({ad.time.strftime(rss.DATETIME_FMT)}` " \
+           f"{'' if ad.description is None else msg.ru.DESCRIPTION_TEMPLATE.format(ad.description)}`)`"
 
 
 def action_register(update: Update, _: CallbackContext) -> int:
     ad = database.ActionData(update.effective_user.id, datetime.now(), ACTION_KEYS.parse(update.message.text))
     pending_action_data[update.effective_user.id] = ad
     # reading past messages is not supported or not well-documented, so we need to store them
+    return ask_action_description(update) \
+        if ad.action == database.actions.unlisted_action else ask_confirmation(update, ad)
+
+
+def ask_action_description(update):
+    update.message.reply_text(msg.ru.ASK_ACTION_DESCRIPTION)
+    return DESCRIBE_ACTION
+
+
+def save_action_description(update: Update, _: CallbackContext) -> int:
+    ad = pending_action_data[update.effective_user.id]
+    ad.description = update.message.text
+    return ask_confirmation(update, ad)
+
+
+def ask_confirmation(update: Update, ad: database.ActionData) -> int:
     update.message.reply_markdown(
         msg.ru.ACTION_CONFIRMATION_ASK.format(action_data=localize_action_data(ad)),
         reply_markup=YES_NO_KEYS.to_keyboard(),
@@ -232,6 +249,7 @@ def build_action_conversation() -> ConversationHandler:
         entry_points=[MessageHandler(Filters.text(msg.ru.REGISTER_ACTION), action_start)],
         states={
             REGISTER: [MessageHandler(ACTION_KEYS.to_filter(), action_register), ],
+            DESCRIBE_ACTION: [MessageHandler(Filters.text & ~Filters.command, save_action_description), ],
             CONFIRM: [MessageHandler(YES_NO_KEYS.to_filter(), action_confirm), ],
         },
         fallbacks=[CANCEL_HANDLER, UNKNOWN_COMMAND_HANDLER],

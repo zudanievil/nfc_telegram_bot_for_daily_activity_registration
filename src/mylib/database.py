@@ -21,9 +21,15 @@ CREATE TABLE Actions (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     user INTEGER NOT NULL,
     date FLOAT NOT NULL,
-    action INTEGER NOT NULL
+    action INTEGER NOT NULL,
+    description TEXT
 );"""
-_INSERT_ACTION = """INSERT INTO Actions (user, date, action) values (?, ?, ?)"""
+LATEST_DB_VERSION = 2
+_NEW_DB_VERSION = _ADD_VERSION = f"""
+CREATE TABLE DBVersion (version_number INTEGER NOT NULL);
+INSERT INTO DBVersion (version_number) values ({LATEST_DB_VERSION});
+"""
+_INSERT_ACTION = """INSERT INTO Actions (user, date, action, description) values (?, ?, ?, ?)"""
 _INSERT_EMAIL = """UPDATE Users
 SET email=?
 WHERE user=?"""
@@ -32,7 +38,7 @@ _INSERT_CHIP = """UPDATE Users
 SET chip=?
 WHERE user=?"""
 _READ_USER_BY_ID = 'SELECT user, chip, email FROM Users WHERE user = ?'
-_READ_ACTIONS_BY_ID = 'SELECT id, user, date, action FROM Actions'
+_READ_ACTIONS_BY_ID = 'SELECT id, user, date, action, description FROM Actions'
 
 
 class actions(Enum):
@@ -42,22 +48,27 @@ class actions(Enum):
     caffeine = 4
     nicotine = 5
     alcohol = 6
+    unlisted_action = 7
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class ActionData:
-    user: int
+    user: int  # these fields are filled at creation time.
     time: datetime
     action: actions
+    # the `description` field can be assigned later on.
+    # initially this field was absent and the instances were immutable.
+    # unfortunately, the most straightforward description implementation was with mutable instances
+    description: Optional[str] = None
 
     def to_db(self, db_conn: sql.Connection):
-        db_conn.execute(_INSERT_ACTION, (self.user, self.time.timestamp(), self.action.value))
+        db_conn.execute(_INSERT_ACTION, (self.user, self.time.timestamp(), self.action.value, self.description))
 
     @classmethod
     def from_db(cls, db_conn: sql.Connection) -> List["ActionData"]:
-        return list(  # todo: fix this
-            cls(x[0], datetime.fromtimestamp(x[1]), actions(x[2]))
-            for x in db_conn.execute(_READ_ACTIONS_BY_ID).fetchall()
+        return list(
+            cls(user, datetime.fromtimestamp(time), actions(action), description)
+            for (_, user, time, action, description) in db_conn.execute(_READ_ACTIONS_BY_ID).fetchall()
         )
 
 
@@ -76,7 +87,7 @@ class ChipData:
     def from_db(self, db_conn: sql.Connection) -> Optional["ChipData"]:
         try:
             _, chip, _ = db_conn.execute(_READ_USER_BY_ID, (self.user,)).fetchall()[0]
-            return self.__class__(self.user, chip)
+            return ChipData(self.user, chip)
         except IndexError:
             return None
 
@@ -128,11 +139,15 @@ def _db_thread(db_path: Path, task_queue: Queue, sigterm: Event,
                queue_poll_interval: float = 0.2):
     if db_path.exists():
         db_conn = sql.connect(db_path)
+        from .database_migration_scripts import update
+        update(db_conn, LATEST_DB_VERSION)
+        del update
     else:
         db_conn = sql.connect(db_path)
         with db_conn:
             db_conn.execute(_NEW_USER_TABLE)
             db_conn.execute(_NEW_ACTION_TABLE)
+            db_conn.executescript(_NEW_DB_VERSION)
 
     while True:
         if task_queue.empty():

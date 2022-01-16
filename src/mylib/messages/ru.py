@@ -49,9 +49,14 @@ STR_TO_ACTIONS = {
     "алкоголь": actions.alcohol,
     "кофеин": actions.caffeine,
     "никотин": actions.nicotine,
+    "другое действие": actions.unlisted_action,
 }
 ACTIONS_TO_STR = {v: k for k, v in STR_TO_ACTIONS.items()}
 ACTION_CONFIRMATION_ASK = \
     "Вы действительно хотите зарегистрировать: {action_data}?"
 ACTION_CONFIRMED = "Действие успешно зарегистрировано."
 ACTION_CANCELED = "Регистрация действия отменена."
+
+
+ASK_ACTION_DESCRIPTION = "Пожалуйста, опишите в нескольких предложениях. Текст должен занимать одно сообщение."
+DESCRIPTION_TEMPLATE = "описание: {}"

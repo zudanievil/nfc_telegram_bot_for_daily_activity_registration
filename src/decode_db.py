@@ -13,17 +13,11 @@ _check(__name__ == "__main__", err_msg="decode_db.py is a script, it cannot be i
 
 from pathlib import Path
 import sqlite3 as sql
-from typing import List
+from typing import List, Optional
 from dataclasses import dataclass
 from collections import namedtuple
 from mylib import (database, resources as rss)
 
-
-def read_Actions(conn: sql.Connection) -> List[database.ActionData]:
-    return list(
-        database.ActionData(user, datetime.fromtimestamp(time), database.actions(action))
-        for (_, user, time, action) in conn.execute(database._READ_ACTIONS_BY_ID).fetchall()
-    )  # todo: move this to database.ActionData.from_db
 
 
 # todo: move to database ==============================
@@ -55,10 +49,11 @@ class TableRow:
     email: str
     chip: int
     action: database.actions
+    description: Optional[str]
 
     @classmethod
     def join(cls, a: database.ActionData, u: UserData) -> "TableRow":
-        return cls(a.time, a.user, u.email, u.chip, a.action)
+        return cls(a.time, a.user, u.email, u.chip, a.action, a.description)
 
     def to_str(self, sep: str = "\t", date_fmt=rss.DATETIME_FMT) -> str:
         return sep.join((
@@ -67,11 +62,12 @@ class TableRow:
             "" if self.email is None else self.email,
             str(self.chip),
             str(self.user),
+            "" if self.description is None else self.description,
         ))
 
     @staticmethod
     def header(sep="\t") -> str:
-        return sep.join(("time", "action", "email", "chip_id", "tg_id"))
+        return sep.join(("time", "action", "email", "chip_id", "tg_id", "action_description"))
 
 
 if __name__ == "__main__":
@@ -80,7 +76,8 @@ if __name__ == "__main__":
     _check(db_path.exists(), err_msg=f"{db_path} does not exist.")
     conn = sql.connect(db_path)
     user_dict = {user.user: user for user in read_Users(conn)}
-    rows = [TableRow.join(action, user_dict[action.user]) for action in read_Actions(conn)]
+    rows = [TableRow.join(action, user_dict[action.user])
+            for action in database.ActionData.from_db(conn)]
     conn.close()
     del user_dict
 
